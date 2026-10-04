@@ -43,6 +43,8 @@ uvicorn sandbox.erp_app:app --port 8800
 
 Open http://127.0.0.1:8800 to see the app the agent operates.
 
+`python scripts/check_openrouter.py` lists free OpenRouter models with tool calling; add a model id to send one test request.
+
 ## Run
 
 ```bash
@@ -84,6 +86,8 @@ python run.py "Record the latest invoice from Apex Diagnostics in the ERP"
 
 Sent emails land in `sandbox/data/outbox/` as .eml files. Reset everything with `python -m sandbox.seed`
 (and restart the ERP).
+
+On Windows, `report` prints the latest run's report.
 
 ## Workflows
 
@@ -204,11 +208,23 @@ Replay calls the model only where a step needs it (document extraction) or when 
 ## Models, frameworks, services
 
 - Model: any OpenRouter model with tool calling, set in `.env` (`MODEL`, optional `FALLBACK_MODELS`). Uses the OpenAI SDK against OpenRouter's compatible API.
+- Tested with `nvidia/nemotron-3-ultra-550b-a55b:free` on OpenRouter, with `nvidia/nemotron-3-super-120b-a12b:free` and `qwen/qwen3.8-27b:free` as fallbacks.
 - LangGraph (state graph, `interrupt()`, SQLite checkpointer)
 - Playwright (Chromium) for browser control
 - FastAPI and Uvicorn for the mock ERP
 - rank_bm25 for SOP retrieval, pypdf for PDF text, reportlab for generating sandbox PDFs
 - AI coding assistants were used while building this.
+
+## What was tested with a real model
+
+- Run with the real model end to end: record vendor invoice (learned, Finance approval, verified, about 20 model calls on the first run), replay for a second vendor (2 calls), UI drift + flaky submit (6 renamed elements self-healed, 503 retried, procedure saved as v2, 6 calls), invoice vs rate contract (mismatch flagged, AP emailed), discharge follow-up found by document search, and a declined approval that left the ERP unchanged.
+- Covered only by the offline end-to-end test (scripted model decisions, real ERP, browser, gate and verifier): insurance claim update, vendor payment query reply, vendor registration routing, ambiguity question, and document Q&A. The free tier allows 50 requests a day.
+
+## Bugs found in real-model testing (and fixed)
+
+- A record that already existed made a run with no save step "pass", and a broken procedure was learned from it. Verification now only counts records and emails created during the run.
+- The approval rule matched the "Record a vendor invoice" link instead of the Save button. Rules can now match on element role.
+- When verification failed because a fact was missing, the feedback was vague and the agent re-sent an email. Feedback now names the missing fact and the tool to record it, and tells the agent not to repeat actions that already succeeded.
 
 ## Assumptions
 
@@ -230,6 +246,7 @@ Replay calls the model only where a step needs it (document extraction) or when 
 - Tasks without an SOP still run, but finish as `completed_unverified`, since there are no success checks to run.
 - The ERP has no login. Session handling and secret injection are not covered.
 - One task at a time. No queue or scheduler.
+- The real model tends to act one field per turn, so a first run costs about 20 calls; replays bring this to 2-6.
 
 ## What I would build next
 

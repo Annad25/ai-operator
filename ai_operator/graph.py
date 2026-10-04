@@ -318,7 +318,8 @@ def verify(s: State) -> dict:
         return {"verification": result, "status": "failed_verification", "verify_attempts": attempts}
     msgs = list(s.get("messages") or [])
     msgs.append({"role": "user", "content": "Independent verification FAILED:\n" + "\n".join(result["details"])
-                 + "\nFix the problem in the system, then call finish again."})
+                 + "\nFix only what failed, then call finish again. Do not repeat actions that already succeeded "
+                 "(for example, do not send the same email twice)."})
     return {"verification": result, "status": "retry", "verify_attempts": attempts, "messages": msgs,
             "mode": "agent", "finish": None}
 

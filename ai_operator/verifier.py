@@ -29,8 +29,12 @@ def _check_outbox(c, facts, since=None):
     from email import policy as email_policy
     to = _fill(c["to"], facts)
     needles = [_fill(x, facts) for x in c.get("contains", [])]
-    if to is None or any(n is None for n in needles):
-        return False, f"FAIL: facts needed for the outbox check are missing (to={to}, contains={needles})"
+    names = [x[1:-1] for x in [c["to"], *c.get("contains", [])] if isinstance(x, str) and x.startswith("{")
+             and _fill(x, facts) is None]
+    if names:
+        return False, (f"FAIL: run memory is missing {names}, so the result cannot be checked. "
+                       f"Record them from the source document with extract_fields (fields={names}). "
+                       f"Do not send the email again if it was already sent correctly.")
     for p in sorted(config.OUTBOX_DIR.glob("*.eml"), reverse=True):
         if since and p.stem.isdigit() and int(p.stem) / 1000 < since:
             continue  # sent before this run
@@ -76,7 +80,8 @@ def run_checks(checks: list[dict], facts: dict, since: float | None = None) -> d
         expect = {k: _fill(v, facts) for k, v in c.get("expect", {}).items()}
         missing = [k for k, v in {**match, **expect}.items() if v is None]
         if missing:
-            details.append(f"FAIL: facts needed for verification are missing: {missing}")
+            details.append(f"FAIL: run memory is missing {missing}, so the result cannot be checked. "
+                           f"Record them from the source document with extract_fields (fields={missing}).")
             passed = False
             continue
         rows = httpx.get(f"{config.ERP_URL}/api/{c['resource']}", params=match, timeout=10).json()

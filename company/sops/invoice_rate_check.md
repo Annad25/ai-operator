@@ -11,7 +11,8 @@ success_checks:
 
 Owner: Accounts Payable, Sahyadri Care Hospital. Policy source: Accounts Payable Manual, section 2.
 
-1. Find the vendor's latest invoice email and its PDF attachment. Extract invoice_no from the PDF.
+1. Find the vendor's latest invoice email and its PDF attachment. Extract invoice_no from the PDF with extract_fields
+   (verification needs it in run memory).
 2. Find the vendor's rate contract or service agreement in the shared drive with search_documents.
 3. Run compare_line_items with the invoice PDF as the document and the contract as the reference.
 4. Email the result to ap-manager@sahyadricare.example.
