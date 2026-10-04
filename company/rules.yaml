@@ -1,0 +1,44 @@
+# Machine-enforced versions of the policies. The LLM reads policies.md,
+# but these rules are checked in code before any action runs. First match wins,
+# so blocks are listed before approvals.
+rules:
+  - id: POL-SEC-01
+    description: No deletions by the AI operator
+    when:
+      tool: browser_click
+      element_name_regex: "(?i)delete|remove"
+    effect: block
+  - id: POL-SEC-01-VENDOR
+    description: The AI operator may not change vendor master data
+    when:
+      tool: browser_click
+      url_contains: /vendors
+      element_role: button
+      element_name_regex: "(?i)add vendor|save|submit"
+    effect: block
+  - id: POL-DATA-02
+    description: Patient identifiers may not be emailed to external addresses
+    when:
+      tool: send_mail
+      arg_regex:
+        to: "^(?!.*@sahyadricare\\.example).*$"
+        body: "(?i)\\bP-\\d{3}\\b"
+    effect: block
+  - id: POL-COM-04
+    description: External emails need Accounts Manager approval
+    when:
+      tool: send_mail
+      arg_regex:
+        to: "^(?!.*@sahyadricare\\.example).*$"
+    effect: require_approval
+    approver: Accounts Manager
+  - id: POL-FIN-03
+    description: Payables above INR 50,000 need Finance Controller approval
+    when:
+      tool: browser_click
+      url_contains: /payables
+      element_role: button          # the form's save button, not the "Record a vendor invoice" link
+      element_name_regex: "(?i)save|record|submit"
+    condition: {fact: amount, op: ">", value: 50000}
+    effect: require_approval
+    approver: Finance Controller
